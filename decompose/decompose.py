@@ -137,7 +137,6 @@ app = FastAPI(title="Deepstack Trainer", description="Train your deepstack AI se
 app.mount("/dist", StaticFiles(directory="dist"), name="dist")
 app.mount("/js", StaticFiles(directory="dist/js"), name="js")
 app.mount("/css", StaticFiles(directory="dist/css"), name="css")
-app.mount("/img", StaticFiles(directory="dist/img"), name="img")
 templates = Jinja2Templates(directory="templates/")
 
 
