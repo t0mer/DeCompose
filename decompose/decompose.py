@@ -131,9 +131,9 @@ def Convert(lst):
 
 
 
-app = FastAPI(title="Docker Composer", description="Generate docker-compose for tunning containers", version="1.0.0")
+app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0")
 logger.info("Configuring app")
-app = FastAPI(title="Deepstack Trainer", description="Train your deepstack AI server", version="1.0.0")
+app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0")
 app.mount("/dist", StaticFiles(directory="dist"), name="dist")
 app.mount("/js", StaticFiles(directory="dist/js"), name="js")
 app.mount("/css", StaticFiles(directory="dist/css"), name="css")
