@@ -1,4 +1,4 @@
-name: docker_builde
+name: release
 
 on:
   release:
@@ -43,4 +43,4 @@ jobs:
           push: true
           tags: |
             techblog/decompose:latest
-            
+            techblog/decompose:${{ steps.getSemver.outputs.semver }}       
