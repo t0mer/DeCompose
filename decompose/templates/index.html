@@ -1,0 +1,92 @@
+<html>
+
+<head>
+    <link href="dist/css/select2.min.css" rel="stylesheet" />
+    <link href="dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+
+
+<body>
+
+    <div style="display:block;width:80%;margin:10px auto">
+
+        <form name="ContainersForm" id="containersform">
+
+
+            <br><br>
+
+            <div class="card" id="wrapper">
+                <div class="card-header text-center">
+                    Docker Compose Generator
+                </div>
+                <div class="card-body">
+                    <label for="containers">Please select container from the list and click Generate</label>
+                    <select name="containers" class="containers" id="containers">
+                        <option value="">-- Select --</option>
+                    </select>
+                    <button type="button" class="btn btn-info btn-sm" id="generate" style="margin-left: 20px;">Generate
+                        yaml</button>
+
+                    <button type="button" class="btn btn-info btn-sm" id="download" style="margin-left: 20px;">Download
+                        compose file</button>
+                    <div style="display:block;margin-top:15px;">&nbsp;</div>
+                    <textarea id="editor" rows="45" style="width: 99%;display: none;"></textarea>
+                </div>
+            </div>
+
+
+        </form>
+    </div>
+</body>
+
+<script src="js/jquery-1.8.3.min.js"></script>
+<script src="js/ace.js"></script>
+<script src="js/mode-yaml.js"></script>
+<script src="js/jquery-ace.min.js"></script>
+<script src="dist/js/select2.min.js"></script>
+<script src="dist/js/bootstrap.min.js"></script>
+
+
+<script>
+    ace.config.set("basePath", "js");
+
+
+    $(document).ready(function () {
+
+        $.get("api/containers", function (data) {
+            // data =  JSON.parse(data);
+            fillContainersList(data)
+        });
+
+        $('#generate').click(function () {
+            cname = $('#containers').val();
+            $.get("api/generate?cname=" + cname, function (data) {
+                $('#editor').ace({ theme: 'twilight', lang: 'yaml' })
+                var editor = $('#editor').data('ace').editor.ace
+                editor.session.setValue(data);
+            });
+
+        });
+
+        $('#download').click(function () {
+            cname = $('#containers').val();
+            window.location.href = "api/download?cname=" + cname;
+
+        });
+
+    });
+
+    function fillContainersList(data) {
+        var option = '';
+        for (var i = 0; i < data.length; i++) {
+            option += '<option value="' + data[i] + '">' + data[i] + '</option>';
+        }
+        $('#containers').append(option);
+        $('#containers').select2();
+    }
+
+
+</script>
+
+</html>
