@@ -17,7 +17,7 @@ RUN mkdir -p /opt/decompose
 COPY decompose /opt/decompose
 WORKDIR /opt/decompose/ 
 
-RUN pip3 install -r requirements.txt0
+RUN pip3 install -r requirements.txt
 
 EXPOSE 8080
 
