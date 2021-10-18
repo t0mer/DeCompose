@@ -1,0 +1,11 @@
+version: "3.7"
+
+services:
+  decompose:
+    image: techblog/decompose
+    container_name: decompose
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "6701:8080"   
