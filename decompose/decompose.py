@@ -1,18 +1,13 @@
-import os, json, requests, uvicorn, uuid, docker
-import shutil, aiofiles, sqlite3, base64
-import sys, argparse, pyaml
+import os, uvicorn, docker
+import pyaml
 from collections import OrderedDict
-from os import environ, path
 from loguru import logger
-from fastapi import FastAPI, Request, File, Form, UploadFile
-from fastapi.responses import UJSONResponse
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from starlette.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import jsonable_encoder
 
 def main(cname):
     struct = {}
@@ -31,10 +26,9 @@ def generate(cname):
     c = docker.from_env()
 
     try:
-        cid = [x.short_id for x in c.containers.list(all=True) if cname == x.name or x.short_id in cname][0]
+        cid = [x.short_id for x in c.containers.list(all=True) if cname == x.name or cname == x.short_id][0]
     except IndexError:
-        print("That container is not available.")
-        sys.exit(1)
+        raise HTTPException(status_code=404, detail=f"Container '{cname}' not found")
 
     cattrs = c.containers.get(cid).attrs
 
