@@ -1,18 +1,13 @@
-import os, json, requests, uvicorn, uuid, docker
-import shutil, aiofiles, sqlite3, base64
-import sys, argparse, pyaml
+import os, uvicorn, docker
+import pyaml
 from collections import OrderedDict
-from os import environ, path
 from loguru import logger
-from fastapi import FastAPI, Request, File, Form, UploadFile
-from fastapi.responses import UJSONResponse
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.encoders import jsonable_encoder
 
 def main(cname):
     struct = {}
@@ -31,10 +26,9 @@ def generate(cname):
     c = docker.from_env()
 
     try:
-        cid = [x.short_id for x in c.containers.list(all=True) if cname == x.name or x.short_id in cname][0]
+        cid = [x.short_id for x in c.containers.list(all=True) if cname == x.name or cname == x.short_id][0]
     except IndexError:
-        print("That container is not available.")
-        sys.exit(1)
+        raise HTTPException(status_code=404, detail=f"Container '{cname}' not found")
 
     cattrs = c.containers.get(cid).attrs
 
@@ -131,24 +125,30 @@ def Convert(lst):
 
 
 
-app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0")
 logger.info("Configuring app")
-app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0")
+app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0",
+              docs_url=None, redoc_url=None)
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:;"
+        )
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 app.mount("/dist", StaticFiles(directory="dist"), name="dist")
 app.mount("/js", StaticFiles(directory="dist/js"), name="js")
 app.mount("/css", StaticFiles(directory="dist/css"), name="css")
 templates = Jinja2Templates(directory="templates/")
-
-
-origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/api/containers")
@@ -164,17 +164,20 @@ def get_containers(request: Request):
 @app.get("/api/generate")
 def generate_compose(request: Request, cname: str=""):
     data = main(cname)
-    with open('docker-compose.yaml', 'w') as outfile:
-        pyaml.dump(data, outfile)
-    with open ("docker-compose.yaml", "r") as composefile:
-        return composefile.read()
+    return pyaml.dump(data)
 
 @app.get("/api/download")
 def get_compose(request: Request, cname: str=""):
+    import re, tempfile
+    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.\-]*', cname):
+        raise HTTPException(status_code=400, detail="Invalid container name")
     data = main(cname)
-    with open(cname +'-docker-compose.yaml', 'w') as outfile:
-        pyaml.dump(data, outfile)
-    return FileResponse(cname + '-docker-compose.yaml', media_type='application/octet-stream',filename=cname + '-docker-compose.yaml')
+    safe_name = os.path.basename(cname)
+    filename = f"{safe_name}-docker-compose.yaml"
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
+        pyaml.dump(data, tmp)
+        tmp_path = tmp.name
+    return FileResponse(tmp_path, media_type='application/octet-stream', filename=filename)
 
 @app.get("/")
 def home(request: Request):
