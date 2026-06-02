@@ -147,10 +147,7 @@ def get_containers(request: Request):
 @app.get("/api/generate")
 def generate_compose(request: Request, cname: str=""):
     data = main(cname)
-    with open('docker-compose.yaml', 'w') as outfile:
-        pyaml.dump(data, outfile)
-    with open ("docker-compose.yaml", "r") as composefile:
-        return composefile.read()
+    return pyaml.dump(data)
 
 @app.get("/api/download")
 def get_compose(request: Request, cname: str=""):
