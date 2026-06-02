@@ -125,24 +125,13 @@ def Convert(lst):
 
 
 
-app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0")
 logger.info("Configuring app")
-app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0")
+app = FastAPI(title="DeCompose", description="Generate docker-compose from running containers", version="1.0.0",
+              docs_url=None, redoc_url=None)
 app.mount("/dist", StaticFiles(directory="dist"), name="dist")
 app.mount("/js", StaticFiles(directory="dist/js"), name="js")
 app.mount("/css", StaticFiles(directory="dist/css"), name="css")
 templates = Jinja2Templates(directory="templates/")
-
-
-origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/api/containers")
