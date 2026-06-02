@@ -165,10 +165,16 @@ def generate_compose(request: Request, cname: str=""):
 
 @app.get("/api/download")
 def get_compose(request: Request, cname: str=""):
+    import re, tempfile
+    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.\-]*', cname):
+        raise HTTPException(status_code=400, detail="Invalid container name")
     data = main(cname)
-    with open(cname +'-docker-compose.yaml', 'w') as outfile:
-        pyaml.dump(data, outfile)
-    return FileResponse(cname + '-docker-compose.yaml', media_type='application/octet-stream',filename=cname + '-docker-compose.yaml')
+    safe_name = os.path.basename(cname)
+    filename = f"{safe_name}-docker-compose.yaml"
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
+        pyaml.dump(data, tmp)
+        tmp_path = tmp.name
+    return FileResponse(tmp_path, media_type='application/octet-stream', filename=filename)
 
 @app.get("/")
 def home(request: Request):
