@@ -5,9 +5,8 @@ from loguru import logger
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import FileResponse
 
 # Container names are constrained by Docker to this character set; validate the
 # user-supplied `cname` against it on every endpoint so malformed input is
@@ -180,15 +179,20 @@ def generate_compose(request: Request, cname: str=""):
 
 @app.get("/api/download")
 def get_compose(request: Request, cname: str=""):
-    import tempfile
     validate_cname(cname)
     data = main(cname)
     safe_name = os.path.basename(cname)
     filename = f"{safe_name}-docker-compose.yaml"
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
-        pyaml.dump(data, tmp)
-        tmp_path = tmp.name
-    return FileResponse(tmp_path, media_type='application/octet-stream', filename=filename)
+    # Render and return the compose file straight from memory. The generated
+    # YAML embeds the container's environment (which routinely holds DB
+    # passwords, API keys, etc.); writing it to a temp file with delete=False
+    # left that sensitive data lingering in /tmp indefinitely.
+    body = pyaml.dump(data)
+    return Response(
+        content=body,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @app.get("/")
 def home(request: Request):
