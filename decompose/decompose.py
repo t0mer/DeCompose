@@ -1,4 +1,4 @@
-import os, uvicorn, docker
+import os, re, uvicorn, docker
 import pyaml
 from collections import OrderedDict
 from loguru import logger
@@ -8,6 +8,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import FileResponse
+
+# Container names are constrained by Docker to this character set; validate the
+# user-supplied `cname` against it on every endpoint so malformed input is
+# rejected at the boundary instead of flowing into downstream lookups.
+CNAME_RE = re.compile(r'[a-zA-Z0-9][a-zA-Z0-9_.\-]*')
+
+
+def validate_cname(cname):
+    if not cname or not CNAME_RE.fullmatch(cname):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
 
 def main(cname):
     struct = {}
@@ -163,14 +174,14 @@ def get_containers(request: Request):
 
 @app.get("/api/generate")
 def generate_compose(request: Request, cname: str=""):
+    validate_cname(cname)
     data = main(cname)
     return pyaml.dump(data)
 
 @app.get("/api/download")
 def get_compose(request: Request, cname: str=""):
-    import re, tempfile
-    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.\-]*', cname):
-        raise HTTPException(status_code=400, detail="Invalid container name")
+    import tempfile
+    validate_cname(cname)
     data = main(cname)
     safe_name = os.path.basename(cname)
     filename = f"{safe_name}-docker-compose.yaml"
