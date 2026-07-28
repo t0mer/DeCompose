@@ -47,47 +47,6 @@
 <script src="js/jquery-ace.min.js"></script>
 <script src="dist/js/select2.min.js"></script>
 <script src="dist/js/bootstrap.min.js"></script>
-
-
-<script>
-    ace.config.set("basePath", "js");
-
-
-    $(document).ready(function () {
-
-        $.get("api/containers", function (data) {
-            // data =  JSON.parse(data);
-            fillContainersList(data)
-        });
-
-        $('#generate').click(function () {
-            cname = $('#containers').val();
-            $.get("api/generate?cname=" + cname, function (data) {
-                $('#editor').ace({ theme: 'twilight', lang: 'yaml' })
-                var editor = $('#editor').data('ace').editor.ace
-                editor.session.setValue(data);
-            });
-
-        });
-
-        $('#download').click(function () {
-            cname = $('#containers').val();
-            window.location.href = "api/download?cname=" + cname;
-
-        });
-
-    });
-
-    function fillContainersList(data) {
-        var option = '';
-        for (var i = 0; i < data.length; i++) {
-            option += '<option value="' + data[i] + '">' + data[i] + '</option>';
-        }
-        $('#containers').append(option);
-        $('#containers').select2();
-    }
-
-
-</script>
+<script src="js/app.js"></script>
 
 </html>
