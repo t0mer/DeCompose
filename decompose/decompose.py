@@ -1,13 +1,23 @@
-import os, uvicorn, docker
+import os, re, uvicorn, docker
 import pyaml
 from collections import OrderedDict
 from loguru import logger
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import FileResponse
+
+# Container names are constrained by Docker to this character set; validate the
+# user-supplied `cname` against it on every endpoint so malformed input is
+# rejected at the boundary instead of flowing into downstream lookups.
+CNAME_RE = re.compile(r'[a-zA-Z0-9][a-zA-Z0-9_.\-]*')
+
+
+def validate_cname(cname):
+    if not cname or not CNAME_RE.fullmatch(cname):
+        raise HTTPException(status_code=400, detail="Invalid container name")
+
 
 def main(cname):
     struct = {}
@@ -137,7 +147,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:;"
         )
@@ -163,21 +173,26 @@ def get_containers(request: Request):
 
 @app.get("/api/generate")
 def generate_compose(request: Request, cname: str=""):
+    validate_cname(cname)
     data = main(cname)
     return pyaml.dump(data)
 
 @app.get("/api/download")
 def get_compose(request: Request, cname: str=""):
-    import re, tempfile
-    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.\-]*', cname):
-        raise HTTPException(status_code=400, detail="Invalid container name")
+    validate_cname(cname)
     data = main(cname)
     safe_name = os.path.basename(cname)
     filename = f"{safe_name}-docker-compose.yaml"
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
-        pyaml.dump(data, tmp)
-        tmp_path = tmp.name
-    return FileResponse(tmp_path, media_type='application/octet-stream', filename=filename)
+    # Render and return the compose file straight from memory. The generated
+    # YAML embeds the container's environment (which routinely holds DB
+    # passwords, API keys, etc.); writing it to a temp file with delete=False
+    # left that sensitive data lingering in /tmp indefinitely.
+    body = pyaml.dump(data)
+    return Response(
+        content=body,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @app.get("/")
 def home(request: Request):
